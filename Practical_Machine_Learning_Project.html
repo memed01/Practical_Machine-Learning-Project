@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+<title>Practical Machine Learning Project</title>
+
+<script type="text/javascript">
+window.onload = function() {
+  var imgs = document.getElementsByTagName('img'), i, img;
+  for (i = 0; i < imgs.length; i++) {
+    img = imgs[i];
+    // center an image if it is the only element of its parent
+    if (img.parentElement.childElementCount === 1)
+      img.parentElement.style.textAlign = 'center';
+  }
+};
+</script>
+
+
+
+
+
+<style type="text/css">
+body, td {
+   font-family: sans-serif;
+   background-color: white;
+   font-size: 13px;
+}
+
+body {
+  max-width: 800px;
+  margin: auto;
+  padding: 1em;
+  line-height: 20px;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+
+h1 {
+   font-size:2.2em;
+}
+
+h2 {
+   font-size:1.8em;
+}
+
+h3 {
+   font-size:1.4em;
+}
+
+h4 {
+   font-size:1.0em;
+}
+
+h5 {
+   font-size:0.9em;
+}
+
+h6 {
+   font-size:0.8em;
+}
+
+a:visited {
+   color: rgb(50%, 0%, 50%);
+}
+
+pre, img {
+  max-width: 100%;
+}
+pre {
+  overflow-x: auto;
+}
+pre code {
+   display: block; padding: 0.5em;
+}
+
+code {
+  font-size: 92%;
+  border: 1px solid #ccc;
+}
+
+code[class] {
+  background-color: #F8F8F8;
+}
+
+table, td, th {
+  border: none;
+}
+
+blockquote {
+   color:#666666;
+   margin:0;
+   padding-left: 1em;
+   border-left: 0.5em #EEE solid;
+}
+
+hr {
+   height: 0px;
+   border-bottom: none;
+   border-top-width: thin;
+   border-top-style: dotted;
+   border-top-color: #999999;
+}
+
+@media print {
+   * {
+      background: transparent !important;
+      color: black !important;
+      filter:none !important;
+      -ms-filter: none !important;
+   }
+
+   body {
+      font-size:12pt;
+      max-width:100%;
+   }
+
+   a, a:visited {
+      text-decoration: underline;
+   }
+
+   hr {
+      visibility: hidden;
+      page-break-before: always;
+   }
+
+   pre, blockquote {
+      padding-right: 1em;
+      page-break-inside: avoid;
+   }
+
+   tr, img {
+      page-break-inside: avoid;
+   }
+
+   img {
+      max-width: 100% !important;
+   }
+
+   @page :left {
+      margin: 15mm 20mm 15mm 10mm;
+   }
+
+   @page :right {
+      margin: 15mm 10mm 15mm 20mm;
+   }
+
+   p, h2, h3 {
+      orphans: 3; widows: 3;
+   }
+
+   h2, h3 {
+      page-break-after: avoid;
+   }
+}
+</style>
+
+
+
+</head>
+
+<body>
+<h3>Practical Machine Learning Project</h3>
+
+<h2>SYNOPSIS</h2>
+
+<p>Our goal in this project is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants,
+to quantify how well they are doing a particular activity.
+This will be achieved by applying the best prediction model on the accelerometer data.</p>
+
+<p>The Caret package will be used for data subsetting, training and cross-validation of the model</p>
+
+<p>To do this I made use of caret and randomForest, this allowed me to generate correct answers for each of the 20 test data cases provided in this assignment. I made use of a seed value for consistent results</p>
+
+<p>First, we load training and Testing accelerometer data.</p>
+
+<h2>DATA PROCESSING</h2>
+
+<pre><code class="r">library(ggplot2)
+library(caret)
+library(rpart)
+library(randomForest)
+library(rpart.plot)
+library(corrplot)
+library(gbm)
+</code></pre>
+
+<h2>load data</h2>
+
+<pre><code class="r">setwd(&quot;C:/Data_Scientist/Cours/Practical Machine Learning/Peer Assesment&quot;)
+if(!file.exists(&quot;data&quot;)){dir.create(&quot;data&quot;)}
+
+trainUrl &lt;-&quot;https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;
+download.file(trainUrl, &quot;./data/trainFile.csv&quot;)
+
+testUrl &lt;- &quot;https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;
+download.file(testUrl, &quot;./data/testFile.csv&quot;)
+</code></pre>
+
+<h1>Convert data contains a number of blank fields, NA values as strings, and fields with the value “#DIV/0!” into R NA values</h1>
+
+<pre><code class="r">training &lt;- read.csv(&quot;./data/trainFile.csv&quot;, row.names = 1, na.strings = c(&quot;#DIV/0!&quot;, &quot;&quot;, &quot; &quot;, &quot;NA&quot;))
+testing &lt;- read.csv(&quot;./data/testFile.csv&quot;, row.names = 1, na.strings = c(&quot;#DIV/0!&quot;, &quot;&quot;, &quot; &quot;, &quot;NA&quot;))
+</code></pre>
+
+<p>The train dataset contains 19622 observations and 159 variables, 
+while the test data set contains 20 observations and 159 variables. 
+The &quot;classe&quot; variable in the train set is the outcome to predict.</p>
+
+<h2>Clean data</h2>
+
+<pre><code class="r">#Seclect variables to use in the analysis: the predicted“classe”,
+# all the variables begining with “roll”, “pitch”, “yaw”, “total_accel”,“gyros”,“accel” and “magnet”
+
+names&lt;-names(training)
+subsetnames&lt;-grep(&quot;^roll_|^pitch|^yaw_|^total_accel|^gyros_|^accel_|^magnet|classe&quot;,names,value=T)
+#creating a subset with the variables selected
+training&lt;- subset(training,select=subsetnames)
+
+names&lt;-names(testing)
+subsetnames&lt;-grep(&quot;^roll_|^pitch|^yaw_|^total_accel|^gyros_|^accel_|^magnet|classe&quot;,names,value=T)
+testing&lt;-subset(testing,select=subsetnames)
+
+# remove near zero covariates
+nsv &lt;- nearZeroVar(training, saveMetrics = T)
+training &lt;- training[, !nsv$nzv]
+
+# remove variables with more than 90% missing values
+na_v &lt;- sapply(colnames(training), function(x) if(sum(is.na(training[, x])) &gt; 0.9*nrow(training)){return(T)}else{return(F)})
+training &lt;- training[, !na_v]
+</code></pre>
+
+<p>After removing 0 near zero covariates, and 0 variables with more than 90% missing values,
+now the train dataset contains 19622 observations and 53 predictors.</p>
+
+<h2>Slice Data</h2>
+
+<p>We can now split the cleaned train set into a pure train data set (70%) and a test data set (30%).
+We will use the test data set to conduct cross validation in future steps.</p>
+
+<pre><code class="r">set.seed(165) # For reproducibile purpose
+inTrain &lt;- createDataPartition(training$classe, p=0.70, list=F)
+trainData &lt;- training[inTrain, ]
+testData &lt;- training[-inTrain, ]
+</code></pre>
+
+<p>The new training dataset contains 13737 observations while the testing data set contains 5885 observations.</p>
+
+<p><strong>The next step explores if there is correlation between variables.</strong></p>
+
+<pre><code class="r">#calculate correlations between &quot;classe&quot; variable and predictors
+predictors&lt;-colnames(trainData[, -ncol(trainData)])
+CorData &lt;- abs(sapply(predictors, function(x) cor(as.numeric(trainData[, x]), as.numeric(trainData$classe), method = &quot;spearman&quot;)))
+
+# plot Histogram of Correlations 
+hist(CorData, col=&quot;gray&quot;)
+</code></pre>
+
+<p><img src="figure/CorData-1.png" alt="plot of chunk CorData"> 
+With a maximum of 32 percent of correlation, there doesn&#39;t seem to be any strong predictors that correlates with classe well,
+so linear regression model is probably not appropriate in this case.</p>
+
+<pre><code class="r">#Plot correlations between predictors with library(corrplot)
+par(mar=c(4.1,2,2,1))
+CorPredict&lt;-cor(trainData[,-ncol(trainData)])
+corrplot(CorPredict, type = &quot;lower&quot;,method = &quot;square&quot;,tl.cex=.6)
+</code></pre>
+
+<p><img src="figure/CorPredict-1.png" alt="plot of chunk CorPredict"> 
+Between the variables, there are many which are highly correlated, due to the high dimensionality in the data, we are going to reduce the dimension on it.
+The principal component pre-processing was applied to trainData and testData subsets of the training set.</p>
+
+<pre><code class="r">#pre processing with pca
+set.seed(166)
+preProc &lt;- preProcess(trainData[,-ncol(trainData)], method = &quot;pca&quot;, thresh = 0.95)
+trainingPC &lt;- predict(preProc, trainData[,-ncol(trainData)])
+testingPC &lt;- predict(preProc, testData[,-ncol(testData)])
+</code></pre>
+
+<p>There is now a new set of variables which retain the major variability. Boosting and random forests algorithms may generate more robust predictions for our data. </p>
+
+<p><strong>Boosting model</strong></p>
+
+<pre><code class="r">set.seed(167)
+#run boosting algorithm with library(gbm)
+#Fit model with boosting algorithm and 10-fold cross validation.
+
+boostFit &lt;- train(trainData$classe ~ ., method = &quot;gbm&quot;, data = trainingPC,
+ verbose = F, trControl = trainControl(method = &quot;cv&quot;, number = 10))
+boostFit
+</code></pre>
+
+<pre><code>## Stochastic Gradient Boosting 
+## 
+## 13737 samples
+##    23 predictor
+##     5 classes: &#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39; 
+## 
+## No pre-processing
+## Resampling: Cross-Validated (10 fold) 
+## 
+## Summary of sample sizes: 12364, 12362, 12365, 12363, 12364, 12363, ... 
+## 
+## Resampling results across tuning parameters:
+## 
+##   interaction.depth  n.trees  Accuracy   Kappa      Accuracy SD
+##   1                   50      0.5616269  0.4381758  0.014549807
+##   1                  100      0.6184070  0.5139902  0.012397877
+##   1                  150      0.6491286  0.5538846  0.016076627
+##   2                   50      0.6572802  0.5642705  0.008716787
+##   2                  100      0.7268730  0.6536523  0.008241958
+##   2                  150      0.7664718  0.7040484  0.007340570
+##   3                   50      0.7177015  0.6418739  0.011279054
+##   3                  100      0.7879485  0.7312347  0.011505817
+##   3                  150      0.8216501  0.7741056  0.007717567
+##   Kappa SD   
+##   0.019091650
+##   0.015572610
+##   0.020243943
+##   0.010972989
+##   0.010678994
+##   0.009328453
+##   0.014365948
+##   0.014739087
+##   0.009824841
+## 
+## Tuning parameter &#39;shrinkage&#39; was held constant at a value of 0.1
+## Accuracy was used to select the optimal model using  the largest value.
+## The final values used for the model were n.trees = 150,
+##  interaction.depth = 3 and shrinkage = 0.1.
+</code></pre>
+
+<pre><code class="r">Acc_BF &lt;- confusionMatrix(testData$classe,predict(boostFit,testingPC))
+Acc_BF$overall[1]
+</code></pre>
+
+<pre><code>##  Accuracy 
+## 0.8161427
+</code></pre>
+
+<p>The boosting algorithm generated a good model with accuracy = 81.61 percent. </p>
+
+<p>** Random forests model**</p>
+
+<pre><code class="r">set.seed(168)
+#Fit model with random forests algorithm and 10-fold cross validation.
+rfFit &lt;- train(trainData$classe ~ ., method = &quot;rf&quot;, data = trainingPC, importance = T,
+trControl = trainControl(method = &quot;cv&quot;, number = 10))
+Acc_RF&lt;-confusionMatrix(testData$classe,predict(rfFit,testingPC))
+</code></pre>
+
+<p><strong>Final model and prediction</strong></p>
+
+<p>The random forests algorithm generated a very accurate model with accuracy = 97.47 percent close to 100.
+Compared to boosting model, this model has overall better performance in terms of accuracy as we see from the percents. </p>
+
+<ul>
+<li>The final random forests model contains 500 trees with 24 variables tried at each split. </li>
+</ul>
+
+<p>** Predict the test set and output results for automatic grader.**</p>
+
+<pre><code class="r"># final model
+rfFit$finalModel
+</code></pre>
+
+<pre><code>## 
+## Call:
+##  randomForest(x = x, y = y, mtry = param$mtry, importance = ..1) 
+##                Type of random forest: classification
+##                      Number of trees: 500
+## No. of variables tried at each split: 2
+## 
+##         OOB estimate of  error rate: 2.52%
+## Confusion matrix:
+##      A    B    C    D    E class.error
+## A 3870    9   14   10    3  0.00921659
+## B   42 2573   38    1    4  0.03197893
+## C    5   35 2331   22    3  0.02712855
+## D    3    2  104 2138    5  0.05062167
+## E    3   10   20   13 2479  0.01821782
+</code></pre>
+
+<pre><code class="r"># prediction
+testing_PC &lt;- predict(preProc, testing[,-ncol(trainData)])
+prediction &lt;- as.character(predict(rfFit, testing_PC))
+length(prediction)
+</code></pre>
+
+<pre><code>## [1] 20
+</code></pre>
+
+</body>
+
+</html>

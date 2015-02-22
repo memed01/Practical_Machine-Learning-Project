@@ -1,0 +1,168 @@
+---
+title: "PML Project"
+author: "Memed"
+date: "22 février 2015"
+output: pdf_document
+---
+### Practical Machine Learning Project
+
+## SYNOPSIS
+
+Our goal in this project is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants,
+to quantify how well they are doing a particular activity.
+This will be achieved by applying the best prediction model on the accelerometer data.
+
+The Caret package will be used for data subsetting, training and cross-validation of the model
+
+To do this I made use of caret and randomForest, this allowed me to generate correct answers for each of the 20 test data cases provided in this assignment. I made use of a seed value for consistent results
+
+First, we load training and Testing accelerometer data.
+
+## DATA PROCESSING
+
+```{r LoadLibraries, echo = TRUE} 
+library(ggplot2)
+library(caret)
+library(rpart)
+library(randomForest)
+library(rpart.plot)
+library(corrplot)
+library(gbm)
+```
+
+## load data
+```{r LoadingData, echo = TRUE}
+setwd("C:/Data_Scientist/Cours/Practical Machine Learning/Peer Assesment")
+if(!file.exists("data")){dir.create("data")}
+
+trainUrl <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(trainUrl, "./data/trainFile.csv")
+
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(testUrl, "./data/testFile.csv")
+```
+Convert data contains a number of blank fields, NA values as strings, and fields with the value #DIV/0!” into R NA values
+```{r, echo=TRUE}
+training <- read.csv("./data/trainFile.csv", row.names = 1, na.strings = c("#DIV/0!", "", " ", "NA"))
+testing <- read.csv("./data/testFile.csv", row.names = 1, na.strings = c("#DIV/0!", "", " ", "NA"))
+```
+
+The train dataset contains `r nrow(training)` observations and `r ncol(training)` variables, 
+while the test data set contains `r nrow(testing)` observations and `r ncol(testing)` variables. 
+The "classe" variable in the train set is the outcome to predict.
+
+## Clean data
+
+```{r CleanData, echo = TRUE}
+#Seclect variables to use in the analysis: the predicted“classe”,
+# all the variables begining with “roll”, “pitch”, “yaw”, “total_accel”,“gyros”,“accel” and “magnet”
+
+names<-names(training)
+subsetnames<-grep("^roll_|^pitch|^yaw_|^total_accel|^gyros_|^accel_|^magnet|classe",names,value=T)
+#creating a subset with the variables selected
+training<- subset(training,select=subsetnames)
+
+names<-names(testing)
+subsetnames<-grep("^roll_|^pitch|^yaw_|^total_accel|^gyros_|^accel_|^magnet|classe",names,value=T)
+testing<-subset(testing,select=subsetnames)
+
+# remove near zero covariates
+nsv <- nearZeroVar(training, saveMetrics = T)
+training <- training[, !nsv$nzv]
+
+# remove variables with more than 90% missing values
+na_v <- sapply(colnames(training), function(x) if(sum(is.na(training[, x])) > 0.9*nrow(training)){return(T)}else{return(F)})
+training <- training[, !na_v]
+```
+After removing `r sum(nsv$nzv)` near zero covariates, and `r sum(na_v)` variables with more than 90% missing values,
+now the train dataset contains `r nrow(training)` observations and `r ncol(training)` predictors.
+
+## Slice Data
+We can now split the cleaned train set into a pure train data set (70%) and a test data set (30%).
+We will use the test data set to conduct cross validation in future steps.
+
+```{r trainData,echo=TRUE} 
+set.seed(165) # For reproducibile purpose
+inTrain <- createDataPartition(training$classe, p=0.70, list=F)
+trainData <- training[inTrain, ]
+testData <- training[-inTrain, ]
+```
+The new training dataset contains `r nrow(trainData)` observations while the testing data set contains `r nrow(testData)` observations.
+
+**The next step explores if there is correlation between variables.**
+
+```{r CorData, echo = TRUE}
+#calculate correlations between "classe" variable and predictors
+predictors<-colnames(trainData[, -ncol(trainData)])
+CorData <- abs(sapply(predictors, function(x) cor(as.numeric(trainData[, x]), as.numeric(trainData$classe), method = "spearman")))
+
+# plot Histogram of Correlations 
+hist(CorData, col="gray")
+
+```
+With a maximum of `r round(max(CorData)*100,1)` percent of correlation, there doesn't seem to be any strong predictors that correlates with classe well,
+so linear regression model is probably not appropriate in this case.
+
+```{r CorPredict, echo=TRUE}
+#Plot correlations between predictors with library(corrplot)
+par(mar=c(4.1,2,2,1))
+CorPredict<-cor(trainData[,-ncol(trainData)])
+corrplot(CorPredict, type = "lower",method = "square",tl.cex=.6)
+```
+Between the variables, there are many which are highly correlated, due to the high dimensionality in the data, we are going to reduce the dimension on it.
+The principal component pre-processing was applied to trainData and testData subsets of the training set.
+
+```{r PC}
+#pre processing with pca
+set.seed(166)
+preProc <- preProcess(trainData[,-ncol(trainData)], method = "pca", thresh = 0.95)
+trainingPC <- predict(preProc, trainData[,-ncol(trainData)])
+testingPC <- predict(preProc, testData[,-ncol(testData)])
+
+```
+
+There is now a new set of variables which retain the major variability. Boosting and random forests algorithms may generate more robust predictions for our data. 
+
+**Boosting model**
+
+```{r Boosting, echo=TRUE}
+set.seed(167)
+#run boosting algorithm with library(gbm)
+#Fit model with boosting algorithm and 10-fold cross validation.
+
+boostFit <- train(trainData$classe ~ ., method = "gbm", data = trainingPC,
+ verbose = F, trControl = trainControl(method = "cv", number = 10))
+boostFit
+
+Acc_BF <- confusionMatrix(testData$classe,predict(boostFit,testingPC))
+Acc_BF$overall[1]
+```
+The boosting algorithm generated a good model with accuracy = `r round(Acc_BF$overall[1]*100,2)` percent. 
+
+** Random forests model**
+
+```{r Random, echo=TRUE}
+set.seed(168)
+#Fit model with random forests algorithm and 10-fold cross validation.
+rfFit <- train(trainData$classe ~ ., method = "rf", data = trainingPC, importance = T,
+trControl = trainControl(method = "cv", number = 10))
+Acc_RF<-confusionMatrix(testData$classe,predict(rfFit,testingPC))
+RMS_RF <- 1 - as.numeric(Acc_RF$overall[1])
+```
+
+**Final model and prediction**
+
+The random forests algorithm generated a very accurate model with accuracy = `r round(Acc_RF$overall[1]*100,2)` percent close to 100.
+Compared to boosting model, this model has overall better performance in terms of accuracy as we see from the percents. 
+- The final random forests model contains `r rfFit$finalModel$ntree` trees with `r length(rfFit$finalModel$xNames)` variables tried at each split. 
+
+** Predict the test set and output results for automatic grader.**
+
+```{r predictions, echo=TRUE}
+# final model
+rfFit$finalModel
+# prediction
+testing_PC <- predict(preProc, testing[,-ncol(trainData)])
+prediction <- as.character(predict(rfFit, testing_PC))
+length(prediction)
+```

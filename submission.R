@@ -1,0 +1,23 @@
+** Predict the test set and output results for automatic grader.**
+setwd("C:/Data_Scientist/Cours/Practical Machine Learning/Peer Assesment")
+```{r predictions, echo=TRUE}
+# final model
+rfFit$finalModel
+# prediction
+testing_PC <- predict(preProc, testing[,-ncol(trainData)])
+prediction <- as.character(predict(rfFit, testing_PC))
+length(prediction)
+```
+## write prediction files
+
+```{r predictfiles, echo=TRUE}
+if(!file.exists("prediction")){dir.create("prediction")}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("./prediction/problem_id_", i, ".txt")
+    write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, col.names = FALSE)
+  }
+}
+pml_write_files(prediction)
+```
