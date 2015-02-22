@@ -1,4 +1,4 @@
-#### To view html report online, please click [here](http://gloriali.github.io/PracticalMachineLearning_2014/project_report.html).
+#### To view html report online, please click [here](http://github.com/memed01/Practical_Machine-Learning-Project/Practical_Machine_Learning_Project.html).
 
 * [project_report.Rmd](./Practical_Machine_Learning_Project.Rmd): R markdown document for PML project report.
 * [project_report.html](./Practical_Machine_Learning_Project.html): Compiled html file for PML project report.
