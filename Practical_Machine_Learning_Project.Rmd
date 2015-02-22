@@ -152,7 +152,7 @@ RMS_RF <- 1 - as.numeric(Acc_RF$overall[1])
 
 **Final model and prediction**
 
-The random forests algorithm generated a very accurate model with accuracy = `r round(Acc_RF$overall[1]*100,2)` percent close to 100.
+The random forests algorithm generated a very accurate model with accuracy = `r round(Acc_RF$overall[1]*100,2)` percent close to 100, and the estimated out-of-sample error is `r round(RMS_RF*100,2)` percent.
 Compared to boosting model, this model has overall better performance in terms of accuracy as we see from the percents. 
 - The final random forests model contains `r rfFit$finalModel$ntree` trees with `r length(rfFit$finalModel$xNames)` variables tried at each split. 
 

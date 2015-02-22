@@ -2,7 +2,7 @@
 title: "PML Project"
 author: "Memed"
 date: "22 février 2015"
-output: pdf_document
+output: html_document
 ---
 ### Practical Machine Learning Project
 
@@ -24,11 +24,40 @@ First, we load training and Testing accelerometer data.
 ```r
 library(ggplot2)
 library(caret)
+```
+
+```
+## Loading required package: lattice
+```
+
+```r
 library(rpart)
 library(randomForest)
+```
+
+```
+## randomForest 4.6-10
+## Type rfNews() to see new features/changes/bug fixes.
+```
+
+```r
 library(rpart.plot)
 library(corrplot)
 library(gbm)
+```
+
+```
+## Loading required package: survival
+## Loading required package: splines
+## 
+## Attaching package: 'survival'
+## 
+## The following object is masked from 'package:caret':
+## 
+##     cluster
+## 
+## Loading required package: parallel
+## Loaded gbm 2.1
 ```
 
 ## load data
@@ -43,7 +72,7 @@ download.file(trainUrl, "./data/trainFile.csv")
 testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 download.file(testUrl, "./data/testFile.csv")
 ```
-# Convert data contains a number of blank fields, NA values as strings, and fields with the value “#DIV/0!” into R NA values
+Convert data contains a number of blank fields, NA values as strings, and fields with the value #DIV/0!” into R NA values
 
 ```r
 training <- read.csv("./data/trainFile.csv", row.names = 1, na.strings = c("#DIV/0!", "", " ", "NA"))
@@ -143,6 +172,13 @@ set.seed(167)
 
 boostFit <- train(trainData$classe ~ ., method = "gbm", data = trainingPC,
  verbose = F, trControl = trainControl(method = "cv", number = 10))
+```
+
+```
+## Loading required package: plyr
+```
+
+```r
 boostFit
 ```
 
@@ -207,11 +243,12 @@ set.seed(168)
 rfFit <- train(trainData$classe ~ ., method = "rf", data = trainingPC, importance = T,
 trControl = trainControl(method = "cv", number = 10))
 Acc_RF<-confusionMatrix(testData$classe,predict(rfFit,testingPC))
+RMS_RF <- 1 - as.numeric(Acc_RF$overall[1])
 ```
 
 **Final model and prediction**
 
-The random forests algorithm generated a very accurate model with accuracy = 97.47 percent close to 100.
+The random forests algorithm generated a very accurate model with accuracy = 97.47 percent close to 100, and the estimated out-of-sample error is 2.53 percent.
 Compared to boosting model, this model has overall better performance in terms of accuracy as we see from the percents. 
 - The final random forests model contains 500 trees with 24 variables tried at each split. 
 
